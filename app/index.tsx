@@ -1,45 +1,93 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import { Task } from '../types/Task';
+import { Link, useFocusEffect } from 'expo-router';
+import React, { useCallback } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTasks } from '../hooks/useTasks';
 export default function TasksScreen() {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Learn Expo',
-      description: 'Complete the first module',
-      completed: false,
-      createdAt: new Date(),
-    },
-  ]);
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const { tasks, loading, error, deleteTask, updateTask, refreshTasks } = useTasks();
+  
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Screen focused, refreshing tasks');
+      refreshTasks();
+    }, [refreshTasks])
+  );
+  const handleToggleComplete = async (id: number, completed: boolean) => {
+    try {
+      await updateTask(id, { completed: !completed });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update task');
+    }
   };
-  const renderTask = ({ item }: { item: Task }) => (
-    <TouchableOpacity 
-      style={styles.taskItem}
-      onPress={() => toggleTask(item.id)}
-    >
-      <View style={styles.taskContent}>
+  const handleDeleteTask = async (id: number) => {
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTask(id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete task');
+            }
+          }
+        },
+      ]
+    );
+  };
+  const renderTask = ({ item }) => (
+    <View style={styles.taskItem}>
+      <TouchableOpacity 
+        style={styles.taskContent}
+        onPress={() => handleToggleComplete(item.id, item.completed)}
+      >
         <Text style={[styles.taskTitle, item.completed && styles.completedTask]}>
           {item.title}
         </Text>
         <Text style={styles.taskDescription}>{item.description}</Text>
+        <Text style={styles.taskPriority}>Priority: {item.priority}</Text>
+      </TouchableOpacity>
+      
+      <View style={styles.taskActions}>
+        <TouchableOpacity onPress={() => handleDeleteTask(item.id)}>
+          <Text style={styles.deleteButton}>🗑️</Text>
+        </TouchableOpacity>
+        <Text style={styles.taskStatus}>
+          {item.completed ? '✅' : '⭕'}
+        </Text>
       </View>
-      <Text style={styles.taskStatus}>
-        {item.completed ? '✅' : '⭕'}
-      </Text>
-    </TouchableOpacity>
+    </View>
   );
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Loading tasks...</Text>
+      </View>
+    );
+  }
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>Error: {error}</Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
       <FlatList
         data={tasks}
         renderItem={renderTask}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.id?.toString() || ''}
         style={styles.list}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No tasks yet!</Text>
+            <Text style={styles.emptySubtext}>Create your first task to get started.</Text>
+          </View>
+        }
       />
       
       <Link href="/add-task" asChild>
@@ -54,6 +102,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   list: {
     flex: 1,
@@ -83,6 +135,20 @@ const styles = StyleSheet.create({
   taskDescription: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 4,
+  },
+  taskPriority: {
+    fontSize: 12,
+    color: '#888',
+    textTransform: 'capitalize',
+  },
+  taskActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    fontSize: 20,
+    marginRight: 10,
   },
   taskStatus: {
     fontSize: 24,
@@ -98,5 +164,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
   },
 });
