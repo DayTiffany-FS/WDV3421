@@ -16,3 +16,8 @@ npx expo install expo-router
 npx expo install expo-secure-store
 npx expo install expo-sqlite
 npx expo install @react-native-async-storage/async-storage
+
+# Install NativeWind and dependencies
+
+npm install nativewind tailwindcss react-native-reanimated
+npx tailwindcss init

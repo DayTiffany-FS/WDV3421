@@ -1,188 +1,155 @@
-import { Link, useFocusEffect } from 'expo-router';
-import React, { useCallback } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, FlatList, Alert } from 'react-native';
+import { Link } from 'expo-router';
 import { useTasks } from '../hooks/useTasks';
+import { useBreakpoint } from '../hooks/useBreakpoint';
+import databaseService from '../services/database';
+import Button from '../components/Button';
+import Card from '../components/Card';
+
 export default function TasksScreen() {
-  const { tasks, loading, error, deleteTask, updateTask, refreshTasks } = useTasks();
-  
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Screen focused, refreshing tasks');
-      refreshTasks();
-    }, [refreshTasks])
-  );
+  const { tasks, loading, error, deleteTask, updateTask } = useTasks();
+  const breakpoint = useBreakpoint();
+
+  useEffect(() => {
+    databaseService.init?.().catch(console.error);
+  }, []);
+
   const handleToggleComplete = async (id: number, completed: boolean) => {
     try {
       await updateTask(id, { completed: !completed });
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to update task');
     }
   };
+
   const handleDeleteTask = async (id: number) => {
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteTask(id);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete task');
-            }
+    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteTask(id);
+          } catch {
+            Alert.alert('Error', 'Failed to delete task');
           }
         },
-      ]
-    );
+      },
+    ]);
   };
-  const renderTask = ({ item }) => (
-    <View style={styles.taskItem}>
-      <TouchableOpacity 
-        style={styles.taskContent}
-        onPress={() => handleToggleComplete(item.id, item.completed)}
-      >
-        <Text style={[styles.taskTitle, item.completed && styles.completedTask]}>
-          {item.title}
-        </Text>
-        <Text style={styles.taskDescription}>{item.description}</Text>
-        <Text style={styles.taskPriority}>Priority: {item.priority}</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.taskActions}>
-        <TouchableOpacity onPress={() => handleDeleteTask(item.id)}>
-          <Text style={styles.deleteButton}>🗑️</Text>
-        </TouchableOpacity>
-        <Text style={styles.taskStatus}>
-          {item.completed ? '✅' : '⭕'}
-        </Text>
-      </View>
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'text-red-600';
+      case 'medium':
+        return 'text-yellow-600';
+      case 'low':
+        return 'text-green-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  const getNumColumns = () => {
+    switch (breakpoint) {
+      case 'xl':
+        return 3;
+      case 'lg':
+        return 2;
+      default:
+        return 1;
+    }
+  };
+
+  const renderTask = ({ item }: any) => (
+    <View className={`flex-1 ${getNumColumns() > 1 ? 'mx-1' : ''} mb-3`}>
+      <Card variant="elevated">
+        <View className="flex-row justify-between items-start mb-2">
+          <Text
+            className={`flex-1 text-lg font-semibold ${
+              item.completed ? 'line-through text-gray-500' : 'text-gray-900'
+            }`}
+          >
+            {item.title}
+          </Text>
+          <Text className="text-2xl ml-2">
+            {item.completed ? '✅' : '⭕'}
+          </Text>
+        </View>
+
+        <Text className="text-gray-600 mb-3">{item.description}</Text>
+
+        <View className="flex-row justify-between items-center">
+          <Text className={`text-sm font-medium ${getPriorityColor(item.priority)}`}>
+            {item.priority.toUpperCase()}
+          </Text>
+
+          <View className="flex-row space-x-2">
+            <Button
+              title={item.completed ? 'Undo' : 'Complete'}
+              onPress={() => handleToggleComplete(item.id, item.completed)}
+              variant="outline"
+              size="sm"
+            />
+            <Button
+              title="Delete"
+              onPress={() => handleDeleteTask(item.id)}
+              variant="secondary"
+              size="sm"
+            />
+          </View>
+        </View>
+      </Card>
     </View>
   );
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>Loading tasks...</Text>
+      <View className="flex-1 justify-center items-center bg-gray-50">
+        <Text className="text-lg text-gray-600">Loading tasks...</Text>
       </View>
     );
   }
+
   if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Error: {error}</Text>
+      <View className="flex-1 justify-center items-center bg-gray-50 px-4">
+        <Text className="text-lg text-red-600 text-center">
+          Error: {error}
+        </Text>
       </View>
     );
   }
+
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-gray-50">
       <FlatList
         data={tasks}
         renderItem={renderTask}
-        keyExtractor={item => item.id?.toString() || ''}
-        style={styles.list}
+        keyExtractor={(item) => item.id?.toString() || ''}
+        numColumns={getNumColumns()}
+        key={getNumColumns()}
+        contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No tasks yet!</Text>
-            <Text style={styles.emptySubtext}>Create your first task to get started.</Text>
+          <View className="flex-1 justify-center items-center pt-20">
+            <Text className="text-xl font-bold text-gray-600 mb-2">
+              No tasks yet!
+            </Text>
+            <Text className="text-gray-500 text-center">
+              Create your first task to get started.
+            </Text>
           </View>
         }
       />
-      
-      <Link href="/add-task" asChild>
-        <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Add Task</Text>
-        </TouchableOpacity>
-      </Link>
+
+      <View className="p-4">
+        <Link href="/add-task" asChild>
+          <Button title="+ Add Task" onPress={() => {}} fullWidth />
+        </Link>
+      </View>
     </View>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  list: {
-    flex: 1,
-    padding: 16,
-  },
-  taskItem: {
-    backgroundColor: 'white',
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  taskContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  completedTask: {
-    textDecorationLine: 'line-through',
-    color: '#999',
-  },
-  taskDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  taskPriority: {
-    fontSize: 12,
-    color: '#888',
-    textTransform: 'capitalize',
-  },
-  taskActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  deleteButton: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-  taskStatus: {
-    fontSize: 24,
-  },
-  addButton: {
-    backgroundColor: '#007AFF',
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-  },
-});
