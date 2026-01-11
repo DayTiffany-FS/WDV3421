@@ -7,11 +7,16 @@ export type Task = {
 let tasks: Task[] = [];
 
 const databaseService = {
-  async getAllTasks(): Promise<Task[]> {
+  init: async () => {
+    // For in-memory DB, nothing to initialize
+    return Promise.resolve();
+  },
+
+  getAllTasks: async (): Promise<Task[]> => {
     return tasks;
   },
 
-  async addTask(title: string) {
+  addTask: async (title: string) => {
     const newTask: Task = {
       id: Date.now().toString(),
       title,
@@ -21,7 +26,7 @@ const databaseService = {
     return newTask;
   },
 
-  async toggleTask(id: string) {
+  toggleTask: async (id: string) => {
     tasks = tasks.map(task =>
       task.id === id
         ? { ...task, completed: !task.completed }
@@ -29,7 +34,7 @@ const databaseService = {
     );
   },
 
-  async deleteTask(id: string) {
+  deleteTask: async (id: string) => {
     tasks = tasks.filter(task => task.id !== id);
   },
 };

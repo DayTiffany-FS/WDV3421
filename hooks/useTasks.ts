@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import databaseService, { Task } from '../services/database';
+
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const loadTasks = async () => {
     try {
       setLoading(true);
@@ -16,6 +18,7 @@ export function useTasks() {
       setLoading(false);
     }
   };
+
   const createTask = async (taskData: Omit<Task, 'id'>) => {
     try {
       const newTask = await databaseService.createTask(taskData);
@@ -26,13 +29,12 @@ export function useTasks() {
       throw err;
     }
   };
-  const updateTask = async (id: number, updates: Partial<Task>) => {
+
+  const updateTask = async (id: number, updates: Partial<Omit<Task, 'id'>>) => {
     try {
       const updatedTask = await databaseService.updateTask(id, updates);
       if (updatedTask) {
-        setTasks(prev => prev.map(task => 
-          task.id === id ? updatedTask : task
-        ));
+        setTasks(prev => prev.map(t => (t.id === id ? updatedTask : t)));
       }
       return updatedTask;
     } catch (err) {
@@ -40,11 +42,12 @@ export function useTasks() {
       throw err;
     }
   };
+
   const deleteTask = async (id: number) => {
     try {
       const success = await databaseService.deleteTask(id);
       if (success) {
-        setTasks(prev => prev.filter(task => task.id !== id));
+        setTasks(prev => prev.filter(t => t.id !== id));
       }
       return success;
     } catch (err) {
@@ -52,16 +55,10 @@ export function useTasks() {
       throw err;
     }
   };
+
   useEffect(() => {
-    loadTasks();
+    databaseService.init()?.then(loadTasks).catch(console.error);
   }, []);
-  return {
-    tasks,
-    loading,
-    error,
-    createTask,
-    updateTask,
-    deleteTask,
-    refreshTasks: loadTasks,
-  };
+
+  return { tasks, loading, error, createTask, updateTask, deleteTask, refreshTasks: loadTasks };
 }
